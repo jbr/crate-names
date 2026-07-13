@@ -1,22 +1,67 @@
-//! Constants and pure functions that define wire format v1. Builder and
+//! Constants and pure functions that define wire format v2. Builder and
 //! reader both depend on this module, so the format has a single source
 //! of truth.
 
+use std::cmp::Ordering;
+
 /// Artifact file name for the names/versions/ranks table.
-pub const NAMES_FILE_V1: &str = "names-v1.tsv.zst";
+pub const NAMES_FILE_V2: &str = "names-v2.tsv.zst";
 
 /// Artifact file name for the descriptions table.
-pub const DESCRIPTIONS_FILE_V1: &str = "descriptions-v1.tsv.zst";
+pub const DESCRIPTIONS_FILE_V2: &str = "descriptions-v2.tsv.zst";
 
 /// Canonical public URL of the names artifact, republished daily by this
 /// repository's scheduled workflow. Redirects (GitHub release asset), so
 /// fetch with redirect-following enabled.
-pub const NAMES_URL_V1: &str =
-    "https://github.com/jbr/crate-names/releases/download/artifacts/names-v1.tsv.zst";
+pub const NAMES_URL_V2: &str =
+    "https://github.com/jbr/crate-names/releases/download/artifacts/names-v2.tsv.zst";
 
-/// Canonical public URL of the descriptions artifact; see [`NAMES_URL_V1`].
-pub const DESCRIPTIONS_URL_V1: &str =
-    "https://github.com/jbr/crate-names/releases/download/artifacts/descriptions-v1.tsv.zst";
+/// Canonical public URL of the descriptions artifact; see [`NAMES_URL_V2`].
+pub const DESCRIPTIONS_URL_V2: &str =
+    "https://github.com/jbr/crate-names/releases/download/artifacts/descriptions-v2.tsv.zst";
+
+/// Fold one byte of a crate name the way crates.io folds names when it
+/// decides whether two of them collide: ASCII-case-insensitively, with `-`
+/// and `_` equivalent.
+const fn fold(byte: u8) -> u8 {
+    match byte {
+        b'_' => b'-',
+        other => other.to_ascii_lowercase(),
+    }
+}
+
+/// The key a crate name is stored and searched under: ASCII-lowercased,
+/// with `-` and `_` folded together — the same way crates.io decides
+/// whether two names collide.
+///
+/// crates.io rejects a new crate whose folded name matches an existing one,
+/// so this key is unique across the registry — which is what lets the
+/// artifacts be sorted by it and still be searched with a binary search.
+/// Names keep their original spelling in the artifact; only the *ordering*
+/// and the comparisons are folded.
+pub fn normalize(name: &str) -> String {
+    name.bytes().map(fold).map(char::from).collect()
+}
+
+/// Order two crate names by their folded keys, without allocating.
+pub(crate) fn folded_cmp(left: &str, right: &str) -> Ordering {
+    left.bytes().map(fold).cmp(right.bytes().map(fold))
+}
+
+/// Order a crate name against an already-folded needle, without allocating.
+pub(crate) fn folded_cmp_key(name: &str, key: &str) -> Ordering {
+    name.bytes().map(fold).cmp(key.bytes())
+}
+
+/// Whether `name`'s folded key begins with the already-folded `key`.
+pub(crate) fn folded_starts_with(name: &str, key: &str) -> bool {
+    name.len() >= key.len()
+        && name
+            .bytes()
+            .map(fold)
+            .zip(key.bytes())
+            .all(|(name_byte, key_byte)| name_byte == key_byte)
+}
 
 /// Compression level used when producing artifacts.
 #[cfg(feature = "build")]

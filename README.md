@@ -26,19 +26,27 @@ Published daily to the rolling [`artifacts` release]:
 
 | file | ~size | contents |
 |---|---|---|
-| `names-v1.tsv.zst` | 1.8 MB | `name \t default_version \t rank` for every crate |
-| `descriptions-v1.tsv.zst` | 5.5 MB | `name \t description` for every crate with one |
+| `names-v2.tsv.zst` | 1.8 MB | `name \t default_version \t rank` for every crate |
+| `descriptions-v2.tsv.zst` | 5.5 MB | `name \t description` for every crate with one |
 
 [`artifacts` release]: https://github.com/jbr/crate-names/releases/tag/artifacts
 
-Both are zstd-compressed TSV, one crate per line, sorted byte-wise by
-name, guaranteed sorted and (for names) three-fields-per-line by the
+Both are zstd-compressed TSV, one crate per line, sorted by the crate's
+*folded* name — ASCII-lowercased, with `-` and `_` the same character —
+and guaranteed sorted and (for names) three-fields-per-line by the
 builder. Because crate names cannot contain tabs or newlines, and
 description whitespace is flattened to single spaces, there is no
 escaping: the format is fully processable with standard tools.
 
+Folding is what makes lookups work the way people type: `Tokio`, `tokio`
+and `tokio_util` all find what you meant. crates.io will not let a new
+crate take a name that folds onto an existing one, so the folded key is
+unique registry-wide — the artifacts stay sorted *and* unique under it,
+and queries remain two binary searches. Names are stored as spelled; only
+the ordering is folded.
+
 ```console
-$ curl -sL https://github.com/jbr/crate-names/releases/download/artifacts/names-v1.tsv.zst \
+$ curl -sL https://github.com/jbr/crate-names/releases/download/artifacts/names-v2.tsv.zst \
     | zstd -d | grep '^serde\b'
 serde	1.0.228	240
 ```
@@ -69,8 +77,8 @@ fn typeahead_demo(artifact: &[u8]) -> Result<(), Error> {
         println!("{}\t{}", entry.name, entry.version);
     }
 
-    // exact lookup
-    if let Some(serde) = names.get("serde") {
+    // name lookup, folded: "Serde" and "serde" are the same crate
+    if let Some(serde) = names.get("Serde") {
         println!("serde's default version is {}", serde.version);
     }
 
@@ -88,11 +96,14 @@ $ curl -sL https://static.crates.io/db-dump.tar.gz | crate-names build --out out
 
 ## Versioning
 
-The wire format and the library are versioned independently: the `-v1`
+The wire format and the library are versioned independently: the `-v2`
 in the file names is the format contract, while the crate follows semver
-as usual. If the format ever changes incompatibly it will be published
-as new `-v2` files alongside the `-v1` ones, so existing consumers keep
-working.
+as usual.
+
+`-v2` re-sorted the artifacts by folded name (see above); a `-v1` reader
+would reject a `-v2` artifact as unsorted rather than mis-search it. The
+`-v1` assets are gone — the crate was days old and had no other known
+consumers.
 
 ## Safety
 
