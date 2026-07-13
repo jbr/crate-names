@@ -1,6 +1,6 @@
 //! Build artifacts from a crates.io database dump tarball.
 
-use crate::format::{ZSTD_LEVEL, flatten_whitespace, rank_from_downloads};
+use crate::format::{ZSTD_LEVEL, flatten_whitespace, folded_cmp, rank_from_downloads};
 use std::collections::HashMap;
 use std::fmt;
 use std::io::Read;
@@ -19,6 +19,10 @@ pub enum BuildError {
     /// a crate name contained bytes outside the crates.io charset,
     /// which would corrupt the line-oriented format
     InvalidName(String),
+    /// two crate names folded to the same key, which crates.io should have
+    /// prevented and which the reader's binary search relies on being
+    /// impossible
+    DuplicateName(String, String),
 }
 
 impl fmt::Display for BuildError {
@@ -29,6 +33,12 @@ impl fmt::Display for BuildError {
             BuildError::MissingTable(t) => write!(f, "dump did not contain {t}"),
             BuildError::MissingColumn(t, c) => write!(f, "{t} did not contain column {c}"),
             BuildError::InvalidName(n) => write!(f, "unexpected crate name {n:?}"),
+            BuildError::DuplicateName(a, b) => {
+                write!(
+                    f,
+                    "crate names {a:?} and {b:?} are not distinct when folded"
+                )
+            }
         }
     }
 }
@@ -91,7 +101,7 @@ fn column_indexes<const N: usize>(
 }
 
 /// Stream a crates.io database dump tarball (`db-dump.tar.gz` as
-/// downloaded, still gzipped) and produce the v1 artifacts.
+/// downloaded, still gzipped) and produce the v2 artifacts.
 ///
 /// Single pass; does not require seeking, so the tarball can be piped in
 /// without touching disk. Buffers one version string per published
@@ -200,7 +210,15 @@ pub fn build_from_dump(reader: impl Read) -> Result<BuildOutput, BuildError> {
         }
     }
 
-    crates.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    // Sorted by folded name, which is the key the reader binary-searches. The
+    // fold is only an ordering: each line still carries the name as spelled.
+    crates.sort_unstable_by(|a, b| folded_cmp(&a.0, &b.0));
+    if let Some([a, b]) = crates
+        .windows(2)
+        .find(|pair| folded_cmp(&pair[0].0, &pair[1].0).is_eq())
+    {
+        return Err(BuildError::DuplicateName(a.0.clone(), b.0.clone()));
+    }
 
     let mut names_tsv = String::new();
     let mut descriptions_tsv = String::new();

@@ -1,4 +1,4 @@
-use crate_names::{CrateNames, DESCRIPTIONS_FILE_V1, NAMES_FILE_V1, build_from_dump};
+use crate_names::{CrateNames, DESCRIPTIONS_FILE_V2, NAMES_FILE_V2, build_from_dump};
 use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
@@ -8,7 +8,7 @@ const USAGE: &str = "\
 usage:
   crate-names build [--input <db-dump.tar.gz>] [--out <dir>]
       build artifacts from a crates.io database dump (stdin if no --input)
-  crate-names typeahead <prefix> [--names <names-v1.tsv.zst>] [--limit <n>]
+  crate-names typeahead <prefix> [--names <names-v2.tsv.zst>] [--limit <n>]
       query a names artifact (smoke test)";
 
 fn main() -> ExitCode {
@@ -61,8 +61,8 @@ fn build(mut args: impl Iterator<Item = String>) -> Result<(), String> {
 
     fs::create_dir_all(&out).map_err(|e| format!("{}: {e}", out.display()))?;
     for (file, bytes) in [
-        (NAMES_FILE_V1, output.names_zst()),
-        (DESCRIPTIONS_FILE_V1, output.descriptions_zst()),
+        (NAMES_FILE_V2, output.names_zst()),
+        (DESCRIPTIONS_FILE_V2, output.descriptions_zst()),
     ] {
         let bytes = bytes.map_err(|e| format!("compressing {file}: {e}"))?;
         let path = out.join(file);
@@ -74,7 +74,7 @@ fn build(mut args: impl Iterator<Item = String>) -> Result<(), String> {
 
 fn typeahead(mut args: impl Iterator<Item = String>) -> Result<(), String> {
     let mut prefix = None;
-    let mut names_path = PathBuf::from(NAMES_FILE_V1);
+    let mut names_path = PathBuf::from(NAMES_FILE_V2);
     let mut limit = 10;
     while let Some(arg) = args.next() {
         match arg.as_str() {

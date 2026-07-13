@@ -1,5 +1,6 @@
 //! Sans-io readers for the published artifacts.
 
+use crate::format::{folded_cmp, folded_cmp_key, folded_starts_with, normalize};
 use std::fmt;
 use std::ops::Range;
 
@@ -50,8 +51,9 @@ pub struct Entry<'a> {
     pub rank: u8,
 }
 
-/// The decompressed text of an artifact plus line offsets. Sorted-by-name
-/// TSV needs no further indexing: prefix queries are two binary searches.
+/// The decompressed text of an artifact plus line offsets. TSV sorted by
+/// folded name needs no further indexing: prefix queries are two binary
+/// searches.
 struct SortedTsv {
     text: String,
     /// byte offset of each line start, plus a sentinel at `text.len()`
@@ -81,7 +83,7 @@ impl SortedTsv {
         }
         let tsv = Self { text, offsets };
         for line in 1..tsv.len() {
-            if tsv.name(line - 1) >= tsv.name(line) {
+            if folded_cmp(tsv.name(line - 1), tsv.name(line)).is_ge() {
                 return Err(Error::Unsorted { line });
             }
         }
@@ -118,15 +120,22 @@ impl SortedTsv {
         low
     }
 
+    /// The lines whose folded name starts with the folded `prefix`. Folding
+    /// the needle once here keeps every comparison in the binary search
+    /// allocation-free.
     fn prefix_range(&self, prefix: &str) -> Range<usize> {
-        let start = self.partition_point(|name| name < prefix);
-        let end = self.partition_point(|name| name < prefix || name.starts_with(prefix));
+        let key = normalize(prefix);
+        let start = self.partition_point(|name| folded_cmp_key(name, &key).is_lt());
+        let end = self.partition_point(|name| {
+            folded_cmp_key(name, &key).is_lt() || folded_starts_with(name, &key)
+        });
         start..end
     }
 
     fn find(&self, name: &str) -> Option<usize> {
-        let index = self.partition_point(|candidate| candidate < name);
-        (index < self.len() && self.name(index) == name).then_some(index)
+        let key = normalize(name);
+        let index = self.partition_point(|candidate| folded_cmp_key(candidate, &key).is_lt());
+        (index < self.len() && folded_cmp_key(self.name(index), &key).is_eq()).then_some(index)
     }
 }
 
@@ -183,26 +192,30 @@ impl CrateNames {
         self.len() == 0
     }
 
-    /// Exact-name lookup.
+    /// Name lookup, folded: case-insensitive, and `-` and `_` are the same
+    /// character. `get("Tokio_Util")` finds `tokio-util`, because crates.io
+    /// would not have let a second crate claim that name.
     pub fn get(&self, name: &str) -> Option<Entry<'_>> {
         self.entry(self.0.find(name)?)
     }
 
-    /// How many crate names start with `prefix`. Two binary searches — no
-    /// enumeration — so this is as cheap for `"s"` as for `"trillium-"`.
+    /// How many crate names start with `prefix`, folded as in [`get`](Self::get).
+    /// Two binary searches — no enumeration — so this is as cheap for `"s"`
+    /// as for `"trillium-"`.
     pub fn count(&self, prefix: &str) -> usize {
         self.0.prefix_range(prefix).len()
     }
 
-    /// All crates whose name starts with `prefix`, in byte order.
+    /// All crates whose name starts with `prefix`, folded as in
+    /// [`get`](Self::get), in artifact order.
     pub fn prefix(&self, prefix: &str) -> impl Iterator<Item = Entry<'_>> {
         self.0
             .prefix_range(prefix)
             .map(|index| self.entry(index).expect("validated at construction"))
     }
 
-    /// The `limit` highest-ranked crates whose name starts with `prefix`,
-    /// ties broken by name.
+    /// The `limit` highest-ranked crates whose name starts with `prefix`
+    /// (folded as in [`get`](Self::get)), ties broken by name.
     pub fn typeahead(&self, prefix: &str, limit: usize) -> Vec<Entry<'_>> {
         let mut matches: Vec<Entry<'_>> = self.prefix(prefix).collect();
         matches.sort_unstable_by(|a, b| b.rank.cmp(&a.rank).then(a.name.cmp(b.name)));
@@ -243,13 +256,14 @@ impl Descriptions {
         self.len() == 0
     }
 
-    /// The description for `name`, if that crate has one.
+    /// The description for `name`, if that crate has one. Folded, as in
+    /// [`CrateNames::get`].
     pub fn get(&self, name: &str) -> Option<&str> {
         let index = self.0.find(name)?;
         self.0.line(index).split_once('\t').map(|(_, desc)| desc)
     }
 
-    /// All `(name, description)` pairs, in name order.
+    /// All `(name, description)` pairs, in artifact order.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
         (0..self.len()).filter_map(|index| self.0.line(index).split_once('\t'))
     }
