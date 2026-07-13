@@ -67,6 +67,12 @@ fn roundtrip() {
     assert_eq!(names.prefix("q").count(), 0);
     assert_eq!(names.prefix("").count(), 4);
 
+    // count agrees with prefix() without enumerating
+    assert_eq!(names.count("ser"), 3);
+    assert_eq!(names.count("serde"), 1);
+    assert_eq!(names.count("q"), 0);
+    assert_eq!(names.count(""), 4);
+
     // typeahead is ordered by rank: serve (999M) > serde (1M) > server-thing (50)
     let typeahead: Vec<&str> = names.typeahead("ser", 2).iter().map(|e| e.name).collect();
     assert_eq!(typeahead, ["serve", "serde"]);
