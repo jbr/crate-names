@@ -1,0 +1,27 @@
+name: publish artifacts
+
+on:
+  schedule:
+    # the crates.io db dump is generated daily around 02:00 UTC; build from
+    # it a couple hours later
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --features build
+      - name: build artifacts from today's db dump
+        run: curl -sL https://static.crates.io/db-dump.tar.gz | ./target/release/crate-names build --out out
+      - name: publish to the rolling `artifacts` release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create artifacts --notes "rolling release; assets are replaced daily by the publish workflow" || true
+          gh release upload artifacts out/names-v1.tsv.zst out/descriptions-v1.tsv.zst --clobber

@@ -1,0 +1,25 @@
+[package]
+name = "crate-names"
+version = "0.1.0"
+edition = "2024"
+description = "Build and read compact artifacts of every crates.io crate name, for typeahead and version lookup"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/jbr/crate-names"
+
+[features]
+default = []
+# enables building artifacts from a crates.io database dump tarball
+build = ["dep:csv", "dep:tar", "dep:flate2"]
+
+[dependencies]
+zstd = "0.13"
+csv = { version = "1", optional = true }
+tar = { version = "0.4", optional = true }
+flate2 = { version = "1", optional = true }
+
+[[bin]]
+name = "crate-names"
+required-features = ["build"]
+
+[profile.release]
+lto = true
