@@ -23,6 +23,29 @@
 //!   on it is not.
 //! - `descriptions-v1.tsv.zst`: `name \t description` for every crate with
 //!   a non-empty description, whitespace runs collapsed to single spaces.
+//!
+//! # Getting the artifacts
+//!
+//! Both are republished daily (built from that morning's crates.io database
+//! dump) to a rolling GitHub release, at stable URLs also exposed as
+//! [`NAMES_URL_V1`] and [`DESCRIPTIONS_URL_V1`]:
+//!
+//! - <https://github.com/jbr/crate-names/releases/download/artifacts/names-v1.tsv.zst>
+//!   (~2 MB)
+//! - <https://github.com/jbr/crate-names/releases/download/artifacts/descriptions-v1.tsv.zst>
+//!   (~5.5 MB)
+//!
+//! The URLs redirect to the release asset, so follow redirects. Assets carry
+//! ETags: revalidate with `If-None-Match` rather than re-downloading — the
+//! content changes at most once a day.
+//!
+//! ```no_run
+//! # fn fetch(url: &str) -> Vec<u8> { unimplemented!() }
+//! let bytes = fetch(crate_names::NAMES_URL_V1);
+//! let names = crate_names::CrateNames::from_zstd(&bytes)?;
+//! let top_ten = names.typeahead("serd", 10);
+//! # Ok::<(), crate_names::Error>(())
+//! ```
 #![forbid(unsafe_code)]
 #![deny(
     clippy::dbg_macro,
@@ -42,7 +65,9 @@ mod readme {}
 mod format;
 mod read;
 
-pub use format::{DESCRIPTIONS_FILE_V1, NAMES_FILE_V1, rank_from_downloads};
+pub use format::{
+    DESCRIPTIONS_FILE_V1, DESCRIPTIONS_URL_V1, NAMES_FILE_V1, NAMES_URL_V1, rank_from_downloads,
+};
 pub use read::{CrateNames, Descriptions, Entry, Error};
 
 #[cfg(feature = "build")]
