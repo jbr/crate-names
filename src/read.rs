@@ -188,6 +188,12 @@ impl CrateNames {
         self.entry(self.0.find(name)?)
     }
 
+    /// How many crate names start with `prefix`. Two binary searches — no
+    /// enumeration — so this is as cheap for `"s"` as for `"trillium-"`.
+    pub fn count(&self, prefix: &str) -> usize {
+        self.0.prefix_range(prefix).len()
+    }
+
     /// All crates whose name starts with `prefix`, in byte order.
     pub fn prefix(&self, prefix: &str) -> impl Iterator<Item = Entry<'_>> {
         self.0
