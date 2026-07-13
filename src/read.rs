@@ -12,10 +12,16 @@ pub enum Error {
     Utf8(std::string::FromUtf8Error),
     /// artifact exceeds the 4GiB this reader supports
     TooLarge,
-    /// lines were not sorted (or not unique) by crate name; 0-indexed
-    Unsorted { line: usize },
-    /// a line did not have the expected fields; 0-indexed
-    Malformed { line: usize },
+    /// lines were not sorted (or not unique) by crate name
+    Unsorted {
+        /// 0-indexed line number
+        line: usize,
+    },
+    /// a line did not have the expected fields
+    Malformed {
+        /// 0-indexed line number
+        line: usize,
+    },
 }
 
 impl fmt::Display for Error {
@@ -35,6 +41,7 @@ impl std::error::Error for Error {}
 /// A single crate in the names artifact.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Entry<'a> {
+    /// the crate's name
     pub name: &'a str,
     /// the crates.io "default version": the version the crates.io ui
     /// itself presents, typically the highest stable non-yanked release
@@ -171,6 +178,7 @@ impl CrateNames {
         self.0.len()
     }
 
+    /// Whether the artifact contains no crates.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -219,10 +227,12 @@ impl Descriptions {
         Ok(Self(SortedTsv::from_text(text)?))
     }
 
+    /// Number of crates in the artifact.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Whether the artifact contains no crates.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

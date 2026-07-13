@@ -5,6 +5,12 @@ edition = "2024"
 description = "Build and read compact artifacts of every crates.io crate name, for typeahead and version lookup"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/jbr/crate-names"
+readme = "README.md"
+keywords = ["crates-io", "typeahead", "autocomplete", "registry"]
+categories = ["development-tools", "database"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = []

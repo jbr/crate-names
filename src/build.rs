@@ -8,7 +8,9 @@ use std::io::Read;
 /// Error returned when building artifacts from a dump.
 #[derive(Debug)]
 pub enum BuildError {
+    /// io error reading the tarball
     Io(std::io::Error),
+    /// a csv file in the dump could not be parsed
     Csv(csv::Error),
     /// an expected csv file was absent from the tarball
     MissingTable(&'static str),
@@ -46,8 +48,11 @@ impl From<csv::Error> for BuildError {
 }
 
 /// The uncompressed artifacts plus build statistics.
+#[derive(Debug)]
 pub struct BuildOutput {
+    /// the names artifact, uncompressed
     pub names_tsv: String,
+    /// the descriptions artifact, uncompressed
     pub descriptions_tsv: String,
     /// crates included in the names artifact
     pub crate_count: usize,

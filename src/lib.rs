@@ -23,6 +23,21 @@
 //!   on it is not.
 //! - `descriptions-v1.tsv.zst`: `name \t description` for every crate with
 //!   a non-empty description, whitespace runs collapsed to single spaces.
+#![forbid(unsafe_code)]
+#![deny(
+    clippy::dbg_macro,
+    missing_copy_implementations,
+    rustdoc::missing_crate_level_docs,
+    missing_debug_implementations,
+    missing_docs,
+    nonstandard_style,
+    unused_qualifications
+)]
+
+// Compile the README as a doctest so its examples stay in sync with the crate.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+mod readme {}
 
 mod format;
 mod read;
