@@ -8,6 +8,16 @@ pub const NAMES_FILE_V1: &str = "names-v1.tsv.zst";
 /// Artifact file name for the descriptions table.
 pub const DESCRIPTIONS_FILE_V1: &str = "descriptions-v1.tsv.zst";
 
+/// Canonical public URL of the names artifact, republished daily by this
+/// repository's scheduled workflow. Redirects (GitHub release asset), so
+/// fetch with redirect-following enabled.
+pub const NAMES_URL_V1: &str =
+    "https://github.com/jbr/crate-names/releases/download/artifacts/names-v1.tsv.zst";
+
+/// Canonical public URL of the descriptions artifact; see [`NAMES_URL_V1`].
+pub const DESCRIPTIONS_URL_V1: &str =
+    "https://github.com/jbr/crate-names/releases/download/artifacts/descriptions-v1.tsv.zst";
+
 /// Compression level used when producing artifacts.
 #[cfg(feature = "build")]
 pub(crate) const ZSTD_LEVEL: i32 = 19;
