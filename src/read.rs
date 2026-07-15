@@ -199,6 +199,22 @@ impl CrateNames {
         self.entry(self.0.find(name)?)
     }
 
+    /// The entry at line `index` (0-based, in the artifact's folded-name sort
+    /// order), or `None` if out of range. Paired with [`len`](Self::len) this
+    /// is the stable handle a caller needs to build a side index that refers
+    /// back into the artifact by position rather than copying names.
+    pub fn entry_at(&self, index: usize) -> Option<Entry<'_>> {
+        (index < self.len()).then(|| self.entry(index)).flatten()
+    }
+
+    /// The half-open range of line indices whose folded name starts with
+    /// `prefix` (folded as in [`get`](Self::get)) — the same range
+    /// [`count`](Self::count) measures, exposed as positions so a caller can
+    /// pair whole-name-prefix hits with [`entry_at`](Self::entry_at).
+    pub fn prefix_indices(&self, prefix: &str) -> Range<usize> {
+        self.0.prefix_range(prefix)
+    }
+
     /// How many crate names start with `prefix`, folded as in [`get`](Self::get).
     /// Two binary searches — no enumeration — so this is as cheap for `"s"`
     /// as for `"trillium-"`.
